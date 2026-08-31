@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,follow">
+  <meta name="theme-color" content="#0a0d14">
+  <title>__TITLE__ · Auto Proxy</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=__STATIC_VER__">
+  <link rel="stylesheet" href="/static/vendor/fonts.css?v=__STATIC_VER__">
+  <link rel="stylesheet" href="/static/design.css?v=__STATIC_VER__">
+  <link rel="stylesheet" href="/static/legal.css?v=__STATIC_VER__">
+  <script src="/static/theme.js?v=__STATIC_VER__"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="skip-link" href="#legal-content">Перейти к документу</a>
+      <a class="logo-group" href="/" aria-label="Auto Proxy — на сайт">
+        <img class="logo-icon" src="/static/favicon.svg" alt="" width="38" height="38">
+        <span class="logo-text">Auto Proxy</span>
+      </a>
+      <div class="header-actions"><a class="logout-btn" href="/">На сайт</a><button id="theme-toggle" class="theme-toggle-btn" type="button" onclick="ProxyTheme.cycle()" aria-label="Переключить тему">◐</button></div>
+    </div>
+  </header>
+  <main class="legal-main" id="legal-content">
+    <nav class="legal-navigation" aria-label="Документы сервиса">__LEGAL_NAVIGATION__</nav>
+    <article class="legal-document">
+      <p class="legal-version">Редакция от <time datetime="__LEGAL_VERSION__">03.11.2026</time></p>
+      <h1>__TITLE__</h1>
+      __DOCUMENT_NOTICE__
+      __DOCUMENT_BODY__
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-inner">
+    <nav class="footer-legal" aria-label="Правовая информация">__LEGAL_NAVIGATION__</nav>
+    <p class="footer-copy">© 2026 Auto Proxy. Сервис не связан с Telegram.</p>
+  </div></footer>
+</body>
+</html>

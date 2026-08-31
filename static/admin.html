@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="system">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Управление — Auto Proxy</title>
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=__STATIC_VER__">
+<link rel="icon" sizes="32x32" href="/favicon.ico?v=__STATIC_VER__">
+<link rel="stylesheet" href="/static/vendor/fonts.css?v=__STATIC_VER__">
+<link rel="stylesheet" href="/static/design.css?v=__STATIC_VER__">
+<link rel="stylesheet" href="/static/admin.css?v=__STATIC_VER__">
+<script src="/static/theme.js?v=__STATIC_VER__"></script>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-wrap">
+  <div class="login-box">
+    <img class="login-logo" src="/static/favicon.svg" alt="" width="60" height="60"><h1>Панель управления</h1>
+    <p>Auto Proxy · доступ для администратора</p>
+    <div class="field">
+      <label for="pw-input">Пароль администратора</label>
+      <input type="password" id="pw-input" autocomplete="current-password" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="err" id="login-err"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()" id="login-btn">
+      Войти
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <a class="brand" href="/"><img src="/static/favicon.svg" alt="" width="36" height="36">Auto Proxy <small>Управление</small></a>
+    <div class="topbar-actions">
+      <span id="topbar-info" style="font-size:.8rem;color:var(--muted)"></span>
+      <button id="theme-toggle" class="btn btn-ghost btn-sm" onclick="ProxyTheme.cycle()" aria-label="Переключить тему">◐</button><button class="btn btn-ghost btn-sm" onclick="doLogout()">Выйти</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="admin-heading"><h1>Панель управления</h1><p>Серверы, пользователи и состояние сервиса</p></div><div class="tabs" role="tablist" aria-label="Разделы управления">
+      <button class="tab active" role="tab" aria-selected="true" aria-controls="tab-stats" onclick="switchTab('stats')">Статистика</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="tab-proxies" onclick="switchTab('proxies')">Прокси</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="tab-users" onclick="switchTab('users')">Пользователи</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="tab-tools" onclick="switchTab('tools')">Инструменты</button>
+    </div>
+
+    <!-- STATS -->
+    <div id="tab-stats">
+      <div id="stats-grid" class="stat-grid"><div class="stat-card"><div class="val"><span class="spinner"></span></div><div class="lbl">Загрузка…</div></div></div>
+
+      <div class="card">
+        <h2>Состояние прокси</h2>
+        <p class="tool-description">Подтверждения и типы посчитаны по выборке до 1000 активных вариантов. Успех относится к указанной проверяющей сети; срок подтверждения — пять минут.</p>
+        <div id="proxy-stats-general" class="stat-grid"></div>
+        <div class="stat-section-title" style="margin-top:16px">Место действующего подтверждения</div>
+        <div id="proxy-stats-cat" class="stat-grid"></div>
+        <div class="stat-section-title" style="margin-top:16px">По типу секрета</div>
+        <div id="proxy-stats-gen" class="stat-grid"></div>
+        <div class="stat-section-title" style="margin-top:16px">Качество и актуальность</div>
+        <div id="proxy-stats-quality" class="stat-grid"></div>
+      </div>
+    </div>
+
+    <!-- PROXIES -->
+    <div id="tab-proxies" class="section-hidden">
+      <div class="toolbar">
+        <select class="filter-select" id="proxy-filter-cat" onchange="loadProxiesList(1)">
+          <option value="">Все старые категории SNI</option>
+          <option value="RU">SNI: RU</option>
+          <option value="EU">SNI: EU</option>
+        </select>
+        <select class="filter-select" id="proxy-filter-gen" onchange="loadProxiesList(1)">
+          <option value="">Все типы</option>
+          <option value="faketls">FakeTLS</option>
+          <option value="randpad">RandPad</option>
+          <option value="plain">Plain</option>
+        </select>
+        <select class="filter-select" id="proxy-filter-alive" onchange="loadProxiesList(1)">
+          <option value="">Все статусы</option>
+          <option value="1">Есть свежее подтверждение</option>
+          <option value="0">Нет свежего подтверждения</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="loadProxiesList(proxyPage)">Обновить</button>
+      </div>
+
+      <p class="tool-description">Показаны до 1000 последних записей по выбранным фильтрам. SNI-категория не определяет страну сервера. Закрепление действует только среди вариантов со свежей протокольной проверкой и не продлевает её срок.</p>
+      <!-- Bulk actions bar -->
+      <div class="bulk-bar" id="proxy-bulk-bar">
+        <span class="bulk-count" id="proxy-bulk-count">0 выбрано</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteSelectedProxies()" id="proxy-bulk-del-btn">
+          Исключить выбранные
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="clearProxySelection()">Отмена</button>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px">
+                  <input type="checkbox" id="proxy-select-all" onchange="toggleSelectAllProxies(this.checked)" title="Выбрать все на странице">
+                </th>
+                <th>ID</th><th>Хост</th><th>Порт</th><th>Тип</th>
+                <th>SNI</th><th>Время теста</th><th>Место проверки</th><th>Peer IP</th>
+                <th>DC</th><th>Подтверждение</th><th>Приоритет</th><th>Проверен</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="proxies-body">
+              <tr><td colspan="14" class="empty">Загрузка…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border2)">
+          <div class="pagination" id="proxy-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div id="tab-users" class="section-hidden">
+      <div class="toolbar">
+        <input class="search-input" id="user-search" type="text"
+               placeholder="Поиск по логину или username…"
+               oninput="debounceSearch()">
+        <button class="btn btn-ghost btn-sm" onclick="loadUsers(1)">Обновить</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Логин</th><th>Username</th>
+                <th>Создан</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <tr><td colspan="4" class="empty">Загрузка…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border2)">
+          <div class="pagination" id="user-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOLS -->
+    <div id="tab-tools" class="section-hidden">
+
+      <div class="card">
+        <h2>Проверяющие точки</h2>
+        <p class="tool-description">TDLib проверяет протокол отдельно от сбора ссылок. Российское подтверждение появляется только от настроенного агента в соответствующей сети.</p>
+        <button class="btn btn-ghost btn-sm" onclick="loadProbeStatus()">Обновить состояние</button>
+        <div id="probe-status" class="tool-result" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h2>Исключение прокси по фильтру</h2>
+        <p class="tool-description">
+          Исключает совпавшие варианты из подбора. Записи остаются в базе с ручной блокировкой: повторный сбор не вернёт их в выдачу. После операции система запросит обновление каталога. Категории RU/EU здесь относятся к прежней классификации SNI, а не к географии сервера.
+        </p>
+        <div class="tool-grid">
+          <div class="field">
+            <label for="df-sni">Домен профиля (содержит)</label>
+            <input class="search-input" id="df-sni" placeholder="example.primernet.com" style="max-width:100%;width:100%">
+          </div>
+          <div class="field">
+            <label for="df-host">Хост/IP (содержит)</label>
+            <input class="search-input" id="df-host" placeholder="1.2.3.4 или example.com" style="max-width:100%;width:100%">
+          </div>
+          <div class="field">
+            <label for="df-category">Старая категория SNI</label>
+            <select class="filter-select" id="df-category" style="width:100%">
+              <option value="">Любая</option>
+              <option value="RU">SNI: RU</option>
+              <option value="EU">SNI: EU</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="df-generation">Тип секрета</label>
+            <select class="filter-select" id="df-generation" style="width:100%">
+              <option value="">Любой</option>
+              <option value="faketls">FakeTLS</option>
+              <option value="randpad">RandPad</option>
+              <option value="plain">Plain</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="df-alive">Служебное поле прошлой проверки</label>
+            <select class="filter-select" id="df-alive" style="width:100%">
+              <option value="">Любой</option>
+              <option value="1">is_alive = TRUE</option>
+              <option value="0">is_alive = FALSE</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="doFilterCount()" id="df-count-btn">🔎 Посчитать</button>
+          <button class="btn btn-danger btn-sm" onclick="doFilterDelete()" id="df-del-btn">Исключить совпавшие</button>
+        </div>
+        <div id="df-result" class="tool-result" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h2>⚡ Принудительное обновление прокси</h2>
+        <p class="tool-description">
+          Запрашивает новый цикл сбора и проверки, не дожидаясь
+          планового интервала. Используйте после изменения каталога,
+          чтобы система начала искать замену.
+        </p>
+        <button class="btn btn-primary btn-sm" onclick="doTriggerUpdate()" id="trigger-btn">
+          ⚡ Запустить обновление сейчас
+        </button>
+        <div id="trigger-result" class="tool-result" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h2>Очистка старых записей</h2>
+        <p class="tool-description">
+          Удаляет давно не встречавшиеся записи без свежих подтверждений и активных заданий. Закреплённые варианты и ручные блокировки сохраняются.
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label style="font-size:.85rem;color:var(--muted)">Не встречались дольше</label>
+          <input class="days-input" id="purge-days" type="number" value="7" min="1" max="365">
+          <label style="font-size:.85rem;color:var(--muted)">дней</label>
+          <button class="btn btn-danger btn-sm" onclick="doPurge()" id="purge-btn">
+            Очистить
+          </button>
+        </div>
+        <div id="purge-result" class="tool-result" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h2>Обслуживание базы данных</h2>
+        <p class="tool-description">
+          Показывает размер базы, таблицы и записи для очистки. Удаляет просроченные временные данные, старые отзывы и неактивные варианты за пределами лимита хранения. Свежие подтверждения, активные задания, закрепления и ручные блокировки защищены от очистки.
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="loadMaintenance()" id="maint-status-btn">🔎 Проверить БД</button>
+          <button class="btn btn-danger btn-sm" onclick="runMaintenance()" id="maint-run-btn">🧹 Запустить очистку</button>
+        </div>
+        <div id="maintenance-result" class="tool-result" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- USER DETAIL MODAL -->
+<div class="modal-overlay" id="user-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modal-title">Пользователь</h2>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ── Base path (injected server-side) ──────────────────────────────────────────
+const ADMIN_BASE = "%%ADMIN_BASE%%";
+
+async function adminFetch(url, options) {
+  const response = await fetch(url, options);
+  if (response.status === 401) {
+    location.reload();
+    throw new Error('Сессия истекла. Войдите снова.');
+  }
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error('Сервер вернул некорректный ответ.');
+  }
+  return response;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentTab    = 'stats';
+let usersPage     = 1;
+let usersTotal    = 0;
+let usersLimit    = 25;
+let searchTimer   = null;
+let currentUserId = null;
+
+// Proxy list state
+let proxyPage     = 1;
+let proxyTotal    = 0;
+let proxyLimit    = 50;
+let selectedProxyIds = new Set();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  const ok = await checkAuth();
+  if (ok) showApp();
+})();
+
+async function checkAuth() {
+  try {
+    const r = await fetch(ADMIN_BASE + '/api/stats');
+    return r.ok && (await r.json()).ok === true;
+  } catch { return false; }
+}
+
+function showApp() {
+  ProxyTheme.apply(ProxyTheme.read());
+  document.getElementById('pw-input').value = '';
+  document.getElementById('login-wrap').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadStats();
+}
+
+// ── Login / Logout ────────────────────────────────────────────────────────────
+async function doLogin() {
+  if (document.getElementById('login-btn').disabled) return;
+  const pw  = document.getElementById('pw-input').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-err');
+  if (!pw) { err.textContent = 'Введите пароль.'; return; }
+  btn.disabled = true; btn.textContent = '⏳ Вход…';
+  err.textContent = '';
+  try {
+    const r    = await fetch(ADMIN_BASE + '/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: pw}) });
+    const data = await r.json();
+    if (r.ok && data.ok) { showApp(); }
+    else         { err.textContent = data.error || 'Ошибка.'; }
+  } catch { err.textContent = 'Ошибка сети.'; }
+  btn.disabled = false; btn.textContent = 'Войти';
+}
+
+async function doLogout() {
+  try {
+    const r = await fetch(ADMIN_BASE + '/logout', { method:'POST' });
+    if (!r.ok) throw new Error();
+    location.reload();
+  } catch { showToast('Не удалось выйти. Повторите попытку.', false); }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  const names = ['stats','proxies','users','tools'];
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', names[i] === name);
+    t.setAttribute('aria-selected', String(names[i] === name));
+  });
+  names.forEach(n => {
+    document.getElementById('tab-' + n).classList.toggle('section-hidden', n !== name);
+  });
+  currentTab = name;
+  if (name === 'stats')    loadStats();
+  if (name === 'proxies')  loadProxiesList(1);
+  if (name === 'users')    loadUsers(1);
+  if (name === 'tools') { loadMaintenance(); loadProbeStatus(); }
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r    = await adminFetch(ADMIN_BASE + '/api/stats');
+    if (r.status === 401) { location.reload(); return; }
+    const data = await r.json();
+    if (!r.ok || !data.ok) { showToast(data.error || 'Ошибка статистики', false); return; }
+
+    const u = data.users || {};
+    const grid = document.getElementById('stats-grid');
+    grid.innerHTML = [
+      ['Всего пользователей', u.total_users  ?? '—',   ''],
+      ['Размер БД',           data.proxies?.db_size_mb != null ? data.proxies.db_size_mb + ' МБ' : '—', 'accent-ru'],
+    ].map(([lbl, val, cls]) => `
+      <div class="stat-card ${cls}">
+        <div class="val">${val}</div>
+        <div class="lbl">${lbl}</div>
+      </div>`).join('');
+
+    const p = data.proxies || {};
+    document.getElementById('proxy-stats-general').innerHTML = [
+      ['Всего в БД',     p.total   ?? '—', ''],
+      ['В активном каталоге', p.catalog_total ?? '—', ''],
+      ['В проверяемой выборке', p.catalog_sampled ?? '—', ''],
+      ['Свежих подтверждений', p.alive ?? '—', 'accent-green'],
+      ['Без свежего подтверждения', p.dead ?? '—', ''],
+      ['Исключено вручную', p.blocked ?? '—', ''],
+      ['Добавлено за 24ч', p.added_24h ?? '—', ''],
+    ].map(([lbl, val, cls]) => `
+      <div class="stat-card ${cls}">
+        <div class="val">${val}</div>
+        <div class="lbl">${lbl}</div>
+      </div>`).join('');
+
+    document.getElementById('proxy-stats-cat').innerHTML = [
+      ['Проверены из сети РФ', p.ru ?? '—', 'accent-ru'],
+      ['Подтверждены только из-за рубежа', p.foreign ?? '—', ''],
+    ].map(([lbl, val, cls]) => `
+      <div class="stat-card ${cls}">
+        <div class="val">${val}</div>
+        <div class="lbl">${lbl}</div>
+      </div>`).join('');
+
+    document.getElementById('proxy-stats-gen').innerHTML = [
+      ['FakeTLS со свежим подтверждением', p.faketls ?? '—', 'accent-green'],
+      ['RandPad со свежим подтверждением', p.randpad ?? '—', ''],
+      ['Plain со свежим подтверждением', p.plain ?? '—', ''],
+    ].map(([lbl, val, cls]) => `
+      <div class="stat-card ${cls}">
+        <div class="val">${val}</div>
+        <div class="lbl">${lbl}</div>
+      </div>`).join('');
+
+    document.getElementById('proxy-stats-quality').innerHTML = [
+      ['Среднее время полного теста', p.avg_test_duration_ms != null ? p.avg_test_duration_ms + ' мс' : '—', ''],
+      ['Закреплено админом', p.admin_recommended ?? '—', ''],
+      ['Закреплено и подтверждено', p.pinned_verified ?? '—', 'accent-green'],
+      ['Не проверены', p.unverified ?? '—', ''],
+      ['Подтверждение устарело', p.stale ?? '—', ''],
+      ['Последняя проверка не прошла', p.failed_here ?? '—', ''],
+    ].map(([lbl, val, cls]) => `
+      <div class="stat-card ${cls}">
+        <div class="val">${val}</div>
+        <div class="lbl">${lbl}</div>
+      </div>`).join('');
+
+  } catch(e) { showToast('Ошибка загрузки статистики', false); }
+}
+
+// ── Proxies List ──────────────────────────────────────────────────────────────
+async function loadProxiesList(page) {
+  proxyPage = page || 1;
+  const cat   = document.getElementById('proxy-filter-cat')?.value   || '';
+  const gen   = document.getElementById('proxy-filter-gen')?.value   || '';
+  const alive = document.getElementById('proxy-filter-alive')?.value || '';
+  const tbody = document.getElementById('proxies-body');
+  tbody.innerHTML = '<tr><td colspan="14" class="empty"><span class="spinner"></span> Загрузка…</td></tr>';
+
+  // Reset selection on new load
+  selectedProxyIds.clear();
+  updateBulkBar();
+  const selAll = document.getElementById('proxy-select-all');
+  if (selAll) selAll.checked = false;
+
+  try {
+    const params = new URLSearchParams({ page: proxyPage, limit: proxyLimit });
+    if (cat)   params.set('category',   cat);
+    if (gen)   params.set('generation', gen);
+    if (alive) params.set('alive',      alive);
+
+    const r    = await adminFetch(ADMIN_BASE + '/api/proxies?' + params);
+    if (r.status === 401) { location.reload(); return; }
+    const data = await r.json();
+    if (!data.ok) {
+      tbody.innerHTML = `<tr><td colspan="14" class="empty">Ошибка: ${esc(data.error)}</td></tr>`;
+      return;
+    }
+    proxyTotal = data.total;
+
+    if (!data.proxies.length) {
+      tbody.innerHTML = '<tr><td colspan="14" class="empty">Прокси не найдены</td></tr>';
+    } else {
+      tbody.innerHTML = data.proxies.map(p => {
+        const evidence = p.evidence || {};
+        const genBadge = p.generation === 'faketls'
+          ? '<span class="badge badge-green">FakeTLS</span>'
+          : p.generation === 'randpad'
+          ? '<span class="badge badge-yellow">RandPad</span>'
+          : '<span class="badge badge-gray">Plain</span>';
+        const measured = evidence.status === 'verified';
+        const statusNames = {verified:'Проверен',unverified:'Не проверен',stale:'Устарело',failed_here:'Проверка не прошла',blocked:'Исключён',archived:'Вне активного каталога'};
+        const statusBadge = `<span class="badge ${measured ? 'badge-green' : 'badge-gray'}">${esc(statusNames[evidence.status] || 'Нет подтверждения')}</span>`;
+        return `
+          <tr>
+            <td><input type="checkbox" class="proxy-cb" value="${esc(p.id)}" onchange="onProxyCbChange(this)"></td>
+            <td style="font-family:monospace;font-size:.8rem">${esc(p.id)}</td>
+            <td style="font-family:monospace;font-size:.82rem">${esc(p.host)}</td>
+            <td>${p.port}</td>
+            <td>${genBadge}</td>
+            <td style="font-size:.8rem;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.sni_domain||'')}">${esc(p.sni_domain||'—')}</td>
+            <td>${measured && Number.isFinite(evidence.duration_ms) ? Math.round(evidence.duration_ms) + ' мс' : '—'}</td>
+            <td style="font-size:.8rem;min-width:180px" title="${esc(evidence.client_profile_id || '')}">${measured ? esc(evidence.coverage_label || evidence.network_key || '—') : '—'}</td>
+            <td style="font-family:monospace;font-size:.78rem">${measured ? esc(evidence.resolved_ip || '—') : '—'}</td>
+            <td>${measured ? esc(evidence.dc_id ?? '—') : '—'}</td>
+            <td>${statusBadge}</td>
+            <td><button class="btn ${p.admin_recommended?'btn-primary':'btn-ghost'} btn-sm"
+                  onclick="toggleProxyRecommendation('${esc(p.id)}',${!p.admin_recommended})"
+                  ${!measured && !p.admin_recommended ? 'disabled title="Нужна свежая протокольная проверка"' : ''}>
+                  ${p.admin_recommended ? '★ Закреплён' : '☆ Закрепить'}
+                </button></td>
+            <td style="font-size:.75rem;color:var(--muted);white-space:nowrap">${measured ? fmtDate(evidence.checked_at) : '—'}</td>
+            <td><button class="btn btn-danger btn-sm" title="Исключить из подбора" onclick="deleteSingleProxy('${esc(p.id)}')">×</button></td>
+          </tr>`;
+      }).join('');
+    }
+    renderProxyPagination();
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="14" class="empty">Ошибка сети</td></tr>'; }
+}
+
+async function toggleProxyRecommendation(proxyId, recommended) {
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/proxies/recommend', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: proxyId, recommended}),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) {
+      showToast(data.error || 'Не удалось изменить рекомендацию', false);
+      return;
+    }
+    showToast(recommended ? 'Прокси закреплён среди проверенных' : 'Закрепление снято', true);
+    await loadProxiesList(proxyPage);
+    loadStats();
+  } catch {
+    showToast('Ошибка сети', false);
+  }
+}
+
+function renderProxyPagination() {
+  const total_pages = Math.ceil(proxyTotal / proxyLimit);
+  const pag = document.getElementById('proxy-pagination');
+  if (total_pages <= 1) {
+    pag.innerHTML = `<span class="page-info">Всего: ${proxyTotal}</span>`;
+    return;
+  }
+  let html = `<span class="page-info">Всего: ${proxyTotal} | Стр. ${proxyPage}/${total_pages}</span>`;
+  if (proxyPage > 1)           html += `<button class="btn btn-ghost btn-sm" onclick="loadProxiesList(${proxyPage-1})">← Назад</button>`;
+  if (proxyPage < total_pages) html += `<button class="btn btn-ghost btn-sm" onclick="loadProxiesList(${proxyPage+1})">Вперёд →</button>`;
+  pag.innerHTML = html;
+}
+
+// ── Proxy selection ───────────────────────────────────────────────────────────
+function onProxyCbChange(cb) {
+  if (cb.checked) selectedProxyIds.add(cb.value);
+  else            selectedProxyIds.delete(cb.value);
+  updateBulkBar();
+  updateSelectAllCheckbox();
+}
+
+function toggleSelectAllProxies(checked) {
+  document.querySelectorAll('.proxy-cb').forEach(cb => {
+    cb.checked = checked;
+    if (checked) selectedProxyIds.add(cb.value);
+    else         selectedProxyIds.delete(cb.value);
+  });
+  updateBulkBar();
+}
+
+function updateSelectAllCheckbox() {
+  const all = document.querySelectorAll('.proxy-cb');
+  const checked = document.querySelectorAll('.proxy-cb:checked');
+  const selAll = document.getElementById('proxy-select-all');
+  if (!selAll) return;
+  selAll.indeterminate = checked.length > 0 && checked.length < all.length;
+  selAll.checked = all.length > 0 && checked.length === all.length;
+}
+
+function updateBulkBar() {
+  const bar   = document.getElementById('proxy-bulk-bar');
+  const count = document.getElementById('proxy-bulk-count');
+  const n = selectedProxyIds.size;
+  if (n > 0) {
+    bar.classList.add('visible');
+    count.textContent = `${n} выбрано`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function clearProxySelection() {
+  selectedProxyIds.clear();
+  document.querySelectorAll('.proxy-cb').forEach(cb => cb.checked = false);
+  const selAll = document.getElementById('proxy-select-all');
+  if (selAll) { selAll.checked = false; selAll.indeterminate = false; }
+  updateBulkBar();
+}
+
+async function deleteSelectedProxies() {
+  const ids = [...selectedProxyIds];
+  if (!ids.length) return;
+  if (!confirm(`Исключить ${ids.length} прокси из подбора? Ручная блокировка сохранится при повторном сборе.`)) return;
+  const btn = document.getElementById('proxy-bulk-del-btn');
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/proxies/delete', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ ids }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showToast(`Исключено ${d.deleted} прокси`, true);
+      selectedProxyIds.clear();
+      loadProxiesList(proxyPage);
+    } else {
+      showToast('Ошибка: ' + d.error, false);
+    }
+  } catch { showToast('Ошибка сети', false); }
+  btn.disabled = false; btn.textContent = 'Исключить выбранные';
+}
+
+async function deleteSingleProxy(id) {
+  if (!confirm(`Исключить прокси ${id} из подбора? Ручная блокировка сохранится при повторном сборе.`)) return;
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/proxies/delete', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ ids: [id] }),
+    });
+    const d = await r.json();
+    if (d.ok) { showToast('Прокси исключён', true); loadProxiesList(proxyPage); }
+    else showToast('Ошибка: ' + d.error, false);
+  } catch { showToast('Ошибка сети', false); }
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadUsers(1), 400);
+}
+
+async function loadUsers(page) {
+  usersPage = page || 1;
+  const q = document.getElementById('user-search')?.value?.trim() || '';
+  const tbody = document.getElementById('users-body');
+  tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span> Загрузка…</td></tr>';
+
+  try {
+    const url = ADMIN_BASE + `/api/users?page=${usersPage}&limit=${usersLimit}&q=${encodeURIComponent(q)}`;
+    const r    = await fetch(url);
+    if (r.status === 401) { location.reload(); return; }
+    const data = await r.json();
+    if (!data.ok) { tbody.innerHTML = `<tr><td colspan="4" class="empty">Ошибка: ${esc(data.error)}</td></tr>`; return; }
+
+    usersTotal = data.total;
+    if (!data.users.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">Нет пользователей</td></tr>';
+    } else {
+      tbody.innerHTML = data.users.map(u => `
+        <tr>
+          <td>${esc(u.account_login)}</td>
+          <td style="color:var(--text2)">${u.username ? '@'+esc(u.username) : '—'}</td>
+          <td style="color:var(--text2);font-size:.8rem">${fmtDate(u.created_at)}</td>
+          <td><button class="btn btn-ghost btn-sm" onclick="openUser(${u.internal_id})">Открыть</button></td>
+        </tr>`).join('');
+    }
+    renderPagination();
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="4" class="empty">Ошибка сети</td></tr>`; }
+}
+
+function renderPagination() {
+  const total_pages = Math.ceil(usersTotal / usersLimit);
+  const pag = document.getElementById('user-pagination');
+  if (total_pages <= 1) { pag.innerHTML = `<span class="page-info">Всего: ${usersTotal}</span>`; return; }
+  let html = `<span class="page-info">Всего: ${usersTotal} | Стр. ${usersPage}/${total_pages}</span>`;
+  if (usersPage > 1)           html += `<button class="btn btn-ghost btn-sm" onclick="loadUsers(${usersPage-1})">← Назад</button>`;
+  if (usersPage < total_pages) html += `<button class="btn btn-ghost btn-sm" onclick="loadUsers(${usersPage+1})">Вперёд →</button>`;
+  pag.innerHTML = html;
+}
+
+// ── User detail modal ─────────────────────────────────────────────────────────
+async function openUser(tid) {
+  currentUserId = tid;
+  document.getElementById('modal-title').textContent = 'Загрузка…';
+  document.getElementById('modal-body').innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+  document.getElementById('modal-actions').innerHTML = '';
+  document.getElementById('user-modal').classList.add('open');
+
+  try {
+    const r    = await fetch(ADMIN_BASE + `/api/user/${tid}`);
+    const data = await r.json();
+    if (!data.ok) { document.getElementById('modal-body').innerHTML = `<div class="empty">${esc(data.error)}</div>`; return; }
+
+    const u = data.user;
+    document.getElementById('modal-title').textContent =
+      `${u.first_name || ''} ${u.last_name || ''} · ${u.account_login || ''}`.trim();
+
+    const rows = [
+      ['Логин (TG username)', u.username ? '@'+u.username : (u.account_login || '—')],
+      ['account_login', u.account_login || '—'],
+      ['Имя',          ((u.first_name||'') + ' ' + (u.last_name||'')).trim() || '—'],
+      ['Доступ',       '✅ Бесплатный тариф 0 ₽'],
+      ['Создан',       fmtDate(u.created_at)],
+      ['Обновлён',     fmtDate(u.updated_at)],
+    ];
+    let html = rows.map(([lbl, val]) =>
+      `<div class="detail-row"><span class="detail-label">${lbl}</span><span class="detail-val">${esc(String(val))}</span></div>`
+    ).join('');
+
+    document.getElementById('modal-body').innerHTML = html;
+
+    document.getElementById('modal-actions').innerHTML = `
+      <button class="btn btn-danger btn-sm" onclick="deleteUser(${tid})">🗑️ Удалить</button>
+    `;
+  } catch(e) { document.getElementById('modal-body').innerHTML = '<div class="empty">Ошибка сети</div>'; }
+}
+
+function closeModal() {
+  document.getElementById('user-modal').classList.remove('open');
+  currentUserId = null;
+}
+
+document.getElementById('user-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+async function deleteUser(tid) {
+  if (!confirm(`УДАЛИТЬ пользователя #${tid} и все его данные? Это необратимо.`)) return;
+  if (!confirm(`Подтвердите ещё раз: удалить #${tid}?`)) return;
+  try {
+    const r = await fetch(ADMIN_BASE + `/api/user/${tid}`, { method:'DELETE' });
+    const d = await r.json();
+    if (d.ok) { showToast('🗑️ Пользователь удалён', true); closeModal(); loadUsers(usersPage); }
+    else showToast('Ошибка: ' + d.error, false);
+  } catch { showToast('Ошибка сети', false); }
+}
+
+// ── Tools ─────────────────────────────────────────────────────────────────────
+async function loadProbeStatus() {
+  const el = document.getElementById('probe-status');
+  try {
+    const response = await adminFetch(ADMIN_BASE + '/api/probes/status');
+    const data = await response.json();
+    if (!data.ok) throw new Error();
+    const nodes = (data.agents || []).map(a => esc(a.id) + ' · ' + esc(a.network_key) + ' · ' + (a.healthy ? 'готов' : 'нет свежего подтверждения готовности')).join('<br>');
+    el.innerHTML = 'TDLib: ' + (data.engine?.available ? 'установлен' : 'недоступен') + ' · версия ' + esc(data.engine?.engine_version || 'ещё не запущен') + '<br>' + (nodes || 'Российские агенты не настроены.') + '<br>Очередь: ' + esc(JSON.stringify(data.jobs || {}));
+  } catch { el.textContent = 'Не удалось получить состояние проверок.'; }
+}
+
+async function doPurge() {
+  if (document.getElementById('purge-btn').disabled) return;
+  const days = Number(document.getElementById('purge-days').value);
+  if (!Number.isInteger(days) || days < 1 || days > 365) { setToolResult('purge-result', 'Укажите целое число дней от 1 до 365.', false); return; }
+  if (!confirm(`Очистить записи, не встречавшиеся дольше ${days} дней, без свежих подтверждений и активных заданий? Ручные блокировки и закрепления сохранятся.`)) return;
+  const btn = document.getElementById('purge-btn');
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/purge', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({days})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      setToolResult('purge-result', `Удалено ${d.deleted} записей (старше ${d.days} дн.)`, true);
+    } else {
+      setToolResult('purge-result', 'Ошибка: ' + d.error, false);
+    }
+  } catch { setToolResult('purge-result', 'Ошибка соединения с сервером.', false); }
+  btn.disabled = false; btn.textContent = 'Очистить';
+}
+
+function renderMaintenance(data) {
+  const el = document.getElementById('maintenance-result');
+  if (!el) return;
+  const c = data.cleanup_candidates || {};
+  const sizes = (data.table_sizes || []).slice(0, 8);
+  const rows = sizes.map(t =>
+    `<tr><td>${esc(t.table_name)}</td><td style="font-family:monospace">${esc(t.size)}</td></tr>`
+  ).join('');
+  el.innerHTML = `
+    <div style="margin-bottom:10px;color:var(--text)">Размер БД: <strong>${data.db_size_mb ?? '—'} МБ</strong></div>
+    <div style="margin-bottom:10px">
+      К очистке: auth=${c.expired_auth_tokens ?? '—'}, pending_reg=${c.expired_pending_regs ?? '—'},
+      feedback=${c.old_proxy_feedback ?? '—'}
+    </div>
+    <div class="tbl-wrap"><table><thead><tr><th>Таблица</th><th>Размер</th></tr></thead><tbody>${rows || '<tr><td colspan="2" class="empty">Нет данных</td></tr>'}</tbody></table></div>
+  `;
+}
+
+async function loadMaintenance() {
+  const btn = document.getElementById('maint-status-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Проверяем…'; }
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/maintenance/status');
+    if (r.status === 401) { location.reload(); return; }
+    const d = await r.json();
+    if (d.ok) renderMaintenance(d);
+    else document.getElementById('maintenance-result').textContent = 'Ошибка: ' + (d.error || 'unknown');
+  } catch { document.getElementById('maintenance-result').textContent = 'Ошибка сети'; }
+  if (btn) { btn.disabled = false; btn.textContent = '🔎 Проверить БД'; }
+}
+
+async function runMaintenance() {
+  if (document.getElementById('maint-run-btn').disabled) return;
+  if (!confirm('Удалить просроченные временные записи, отзывы старше 30 дней и старые неактивные варианты сверх лимита хранения? Свежие подтверждения, активные задания, закрепления и ручные блокировки сохранятся.')) return;
+  const btn = document.getElementById('maint-run-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Чистим…'; }
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/maintenance/run', { method: 'POST' });
+    if (r.status === 401) { location.reload(); return; }
+    const d = await r.json();
+    if (d.ok) {
+      const c = d.proxy_cleanup || {};
+      const u = d.user_cleanup || {};
+      const summary = 'Удалено: временные записи — ' + Object.values(u).reduce((sum, v) => sum + Number(v || 0), 0) + ', мёртвые прокси — ' + (c.dead || 0) + ', сверх лимита — ' + (c.cap || 0) + ', отзывы — ' + (c.feedback || 0) + '.';
+      showToast('Очистка выполнена', true);
+      await loadMaintenance();
+      const notice = document.createElement('div');
+      notice.className = 'cleanup-summary';
+      notice.textContent = summary;
+      document.getElementById('maintenance-result').prepend(notice);
+      loadStats();
+    } else {
+      document.getElementById('maintenance-result').textContent = 'Ошибка: ' + (d.error || 'unknown');
+    }
+  } catch { document.getElementById('maintenance-result').textContent = 'Ошибка сети'; }
+  if (btn) { btn.disabled = false; btn.textContent = '🧹 Запустить очистку'; }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function setToolResult(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'tool-result ' + (ok ? 'success' : 'error');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('ru-RU', {
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit',
+    });
+  } catch { return String(iso); }
+}
+
+let toastTimer = null;
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (ok ? 'ok' : 'err');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3000);
+}
+
+// ── Filter delete ─────────────────────────────────────────────────────────────
+function _getFilterBody() {
+  return {
+    sni_contains:  document.getElementById('df-sni')?.value?.trim()        || '',
+    host_contains: document.getElementById('df-host')?.value?.trim()       || '',
+    category:      document.getElementById('df-category')?.value           || '',
+    generation:    document.getElementById('df-generation')?.value         || '',
+    alive_only:    document.getElementById('df-alive')?.value              || '',
+  };
+}
+
+async function doFilterCount() {
+  const body = _getFilterBody();
+  if (!Object.values(body).some(v => v)) {
+    document.getElementById('df-result').innerHTML = '<span style="color:var(--low)">Укажите хотя бы один фильтр.</span>';
+    return;
+  }
+  const btn = document.getElementById('df-count-btn');
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/proxies/count-filter', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('df-result').innerHTML =
+        `<span style="color:var(--accent-h)">🔎 Под фильтр подходит: <strong>${d.count}</strong> прокси</span>`;
+    } else {
+      document.getElementById('df-result').innerHTML = `<span style="color:var(--low)">Ошибка: ${esc(d.error)}</span>`;
+    }
+  } catch { document.getElementById('df-result').innerHTML = '<span style="color:var(--low)">Ошибка сети</span>'; }
+  btn.disabled = false; btn.textContent = '🔎 Посчитать';
+}
+
+async function doFilterDelete() {
+  const body = _getFilterBody();
+  if (!Object.values(body).some(v => v)) {
+    document.getElementById('df-result').innerHTML = '<span style="color:var(--low)">Укажите хотя бы один фильтр.</span>';
+    return;
+  }
+
+  const btn = document.getElementById('df-del-btn');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = 'Проверяем…';
+  try {
+    const countResponse = await adminFetch(ADMIN_BASE + '/api/proxies/count-filter', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+    });
+    const count = await countResponse.json();
+    if (!count.ok) { setToolResult('df-result', count.error || 'Не удалось посчитать прокси.', false); return; }
+    if (!count.count) { setToolResult('df-result', 'По этому фильтру прокси не найдены.', true); return; }
+    const filterStr = Object.entries(body).filter(([,v]) => v).map(([k,v]) => `${k}=${v}`).join(', ');
+    if (!confirm(`Исключить ${count.count} прокси по фильтру ${filterStr}?\nРучная блокировка сохранится при повторном сборе. Число совпадений может измениться при обновлении каталога.`)) return;
+    btn.textContent = 'Исключаем…';
+    const r = await adminFetch(ADMIN_BASE + '/api/proxies/delete-filter', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('df-result').innerHTML =
+        `<span style="color:var(--high)">Исключено ${d.deleted} прокси. ${d.update_queued ? 'Обновление поставлено в очередь.' : 'Фоновый сборщик сейчас недоступен.'}</span>`;
+      showToast(`Исключено ${d.deleted} прокси`, true);
+    } else {
+      document.getElementById('df-result').innerHTML = `<span style="color:var(--low)">Ошибка: ${esc(d.error)}</span>`;
+    }
+  } catch { setToolResult('df-result', 'Не удалось выполнить удаление. Проверьте соединение.', false); }
+  finally { btn.disabled = false; btn.textContent = 'Исключить совпавшие'; }
+}
+
+// ── Trigger pipeline update ───────────────────────────────────────────────────
+async function doTriggerUpdate() {
+  const btn = document.getElementById('trigger-btn');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = '⏳ Запускаем…';
+  try {
+    const r = await adminFetch(ADMIN_BASE + '/api/trigger-update', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      setToolResult('trigger-result', d.message, true);
+      showToast('⚡ Обновление запрошено', true);
+    } else {
+      setToolResult('trigger-result', d.error, false);
+    }
+  } catch { setToolResult('trigger-result', 'Ошибка соединения с сервером.', false); }
+  btn.disabled = false; btn.textContent = '⚡ Запустить обновление сейчас';
+}
+</script>
+</body>
+</html>
