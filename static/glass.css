@@ -1,0 +1,79 @@
+/* Shared Telegram-inspired palette and liquid glass surfaces. */
+:root {
+  color-scheme: dark;
+  --bg: #0d1925;
+  --bg2: #132638;
+  --surface: rgba(30, 49, 67, .76);
+  --surface2: rgba(38, 61, 80, .66);
+  --surface3: rgba(56, 83, 104, .55);
+  --border: rgba(185, 221, 247, .12);
+  --border2: rgba(197, 230, 255, .23);
+  --accent: #239fdd;
+  --accent-h: #64ccff;
+  --accent2: #32b7de;
+  --accent2-h: #71d4ef;
+  --blue: #239fdd;
+  --blue-h: #64ccff;
+  --text: #edf7ff;
+  --text2: #c2d6e5;
+  --muted: #96afc2;
+  --high: #71d6ac;
+  --mid: #f3c875;
+  --low: #ff949a;
+  --good: var(--high);
+  --ok: var(--mid);
+  --slow: var(--low);
+  --ru: #78c9ff;
+  --eu: #8eddd8;
+  --radius: 24px;
+  --radius-sm: 12px;
+  --shadow: 0 12px 40px rgba(0, 13, 29, .14), inset 0 1px 0 rgba(255, 255, 255, .1);
+  --shadow-lg: 0 28px 90px rgba(0, 12, 26, .25), inset 0 1px 0 rgba(255, 255, 255, .15);
+  --grad: linear-gradient(135deg, #35b9ec, #168bd5);
+  --grad-soft: linear-gradient(135deg, rgba(35, 159, 221, .16), rgba(94, 211, 203, .08));
+  --glass: linear-gradient(135deg, rgba(255,255,255,.075), transparent 60%), var(--surface);
+  --glass-strong: #1d3346;
+  --page-glow: rgba(30, 156, 218, .15);
+  --mint-glow: rgba(70, 191, 172, .1);
+}
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #e9f2f8; --bg2: #dbeaf4;
+  --surface: rgba(255,255,255,.72); --surface2: rgba(242,249,253,.78); --surface3: rgba(223,237,247,.8);
+  --border: rgba(63,111,143,.12); --border2: rgba(63,111,143,.22);
+  --accent: #128dcd; --accent-h: #087bb8; --accent2: #149fb6; --accent2-h: #087f94;
+  --blue: #128dcd; --blue-h: #087bb8; --text: #17334b; --text2: #3f617a; --muted: #5a778d;
+  --high: #188463; --mid: #a36a14; --low: #c74050; --ru: #087bb8; --eu: #137f87;
+  --shadow: 0 12px 40px rgba(53,107,142,.08), inset 0 1px 0 rgba(255,255,255,.95);
+  --shadow-lg: 0 28px 80px rgba(42,101,143,.14), inset 0 1px 0 #fff;
+  --glass: linear-gradient(135deg, rgba(255,255,255,.6), transparent 60%), var(--surface);
+  --glass-strong: #f4faff; --page-glow: rgba(72,172,233,.15); --mint-glow: rgba(97,204,181,.14);
+}
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    color-scheme: light;
+    --bg: #e9f2f8; --bg2: #dbeaf4;
+    --surface: rgba(255,255,255,.72); --surface2: rgba(242,249,253,.78); --surface3: rgba(223,237,247,.8);
+    --border: rgba(63,111,143,.12); --border2: rgba(63,111,143,.22);
+    --accent: #128dcd; --accent-h: #087bb8; --accent2: #149fb6; --accent2-h: #087f94;
+    --blue: #128dcd; --blue-h: #087bb8; --text: #17334b; --text2: #3f617a; --muted: #5a778d;
+    --high: #188463; --mid: #a36a14; --low: #c74050; --ru: #087bb8; --eu: #137f87;
+    --shadow: 0 12px 40px rgba(53,107,142,.08), inset 0 1px 0 rgba(255,255,255,.95);
+    --shadow-lg: 0 28px 80px rgba(42,101,143,.14), inset 0 1px 0 #fff;
+    --glass: linear-gradient(135deg, rgba(255,255,255,.6), transparent 60%), var(--surface);
+    --glass-strong: #f4faff; --page-glow: rgba(72,172,233,.15); --mint-glow: rgba(97,204,181,.14);
+  }
+}
+body {
+  background: var(--bg);
+  background-image: radial-gradient(ellipse at 12% 4%, var(--page-glow), transparent 45%), radial-gradient(ellipse at 90% 42%, var(--mint-glow), transparent 45%);
+  background-attachment: fixed;
+}
+button, input, select { font: inherit; }
+button, a, input, select { -webkit-tap-highlight-color: transparent; }
+button { touch-action: manipulation; }
+:where(a, button, input, select):focus-visible { outline: 3px solid var(--accent-h); outline-offset: 4px; }
+::selection { background: rgba(35,159,221,.3); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
